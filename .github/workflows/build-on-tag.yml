@@ -15,33 +15,27 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up Arduino CLI
-        uses: arduino/setup-arduino-cli@v1
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
 
-      - name: Install board definitions
+      - name: Build runtime Cardputer image
         run: |
-          arduino-cli config init --overwrite
-          arduino-cli config add board_manager.additional_urls https://static-cdn.m5stack.com/resource/arduino/package_m5stack_index.json
-          arduino-cli core update-index
-          arduino-cli core install m5stack:esp32
+          python -m pip install platformio==6.2.0
+          python -m platformio run -e cardenza -j4
+          python .github/launcher/test_nvs_guard.py
 
-      - name: Install M5Cardputer library
+      - name: Prepare app-only binary and notices
         run: |
-          arduino-cli lib install M5Cardputer
-
-      - name: Compile sketch
-        run: |
-          arduino-cli compile --fqbn m5stack:esp32:m5stack_cardputer \
-            --output-dir build \
-            CardputerTracker
-
-      - name: Rename binary
-        run: |
-          mv build/CardputerTracker.ino.merged.bin CardputerTracker-${{ github.ref_name }}.bin
+          python .github/launcher/prepare.py .pio/build/cardenza/firmware.bin .pio/libdeps/cardenza/M5Cardputer/src/M5Cardputer.h
+          cp .pio/build/cardenza/firmware.bin CardputerTracker-${{ github.ref_name }}.bin
 
       - name: Upload to Release
         uses: softprops/action-gh-release@v1
         with:
-          files: CardputerTracker-${{ github.ref_name }}.bin
+          files: |
+            CardputerTracker-${{ github.ref_name }}.bin
+            .git/launcher-output/Cardenza.bin
+            .git/launcher-output/NOTICES.txt
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
