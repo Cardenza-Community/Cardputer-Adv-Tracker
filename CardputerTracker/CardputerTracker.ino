@@ -1,3 +1,4 @@
+#include "cardenza/cardenza_m5_audio.h"
 // ============================================================
 // CardputerTracker - Acid Synth Tracker
 // For M5Stack Cardputer-Adv (ESP32-S3)
@@ -1042,13 +1043,19 @@ void loadDemoPattern() {
 // ============================================================
 void setup() {
   auto cfg = M5.config();
+    Serial.begin(115200);
   M5Cardputer.begin(cfg, true);
+    if (M5.isCardenza()) {
+        Serial.printf("[Cardenza] runtime ES8156 %s; heap=%u\n", M5.cardenzaCodecReady()?"ready":"FAILED", ESP.getFreeHeap());
+        cardenza_m5_require(M5.cardenzaCodecReady(), "ES8156 INIT FAILED");
+    }
+
 
   M5Cardputer.Display.setRotation(1);
   M5Cardputer.Display.fillScreen(TFT_BLACK);
 
   // Init sprite for double-buffered rendering
-  canvas.createSprite(SCREEN_W, SCREEN_H);
+  cardenza_m5_require(canvas.createSprite(SCREEN_W, SCREEN_H),"Display memory FAILED");
   canvas.setTextFont(1);
   canvas.setTextSize(1);
 
@@ -1059,7 +1066,8 @@ void setup() {
   spk_cfg.dma_buf_count = 4;       // fewer = lower latency
   spk_cfg.dma_buf_len = AUDIO_BUF_LEN;
   M5Cardputer.Speaker.config(spk_cfg);
-  M5Cardputer.Speaker.begin();
+
+    cardenza_m5_require(M5Cardputer.Speaker.begin(),"Speaker init FAILED");
   M5Cardputer.Speaker.setVolume(200);
 
   // Init synth voices
@@ -1122,7 +1130,8 @@ void setup() {
   }
 
   // Start audio task on Core 0
-  xTaskCreatePinnedToCore(audioTask, "audio", 8192, NULL, 1, &audioTaskHandle, 0);
+
+    cardenza_m5_require(xTaskCreatePinnedToCore(audioTask, "audio", 8192, NULL, 1, &audioTaskHandle, 0) == pdPASS,"Audio task init FAILED");
 
   needRedraw = true;
 }
